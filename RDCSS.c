@@ -26,11 +26,11 @@ int is_descriptor(uintptr_t ptr);
 
 uintptr_t rdcss(RdcssDescriptor *d) {
 	uintptr_t r;
-	uintptr_t d_ptr = (((uintptr_t)(void*)d) | 1);
+	uintptr_t d_ptr = (((uintptr_t)(void*)d) | 1); // mark our descriptor
 	do {
 		r = CAS1(d->a2, d->o2, d_ptr);
 		if (is_descriptor(r)) {
-			complete((RdcssDescriptor*)(r&~1));
+			complete((RdcssDescriptor*)(r&~1)); // unmark before cast
 		}
 	} while (is_descriptor(r));
 	if(r == d->o2) complete(d);
@@ -40,22 +40,19 @@ uintptr_t rdcss(RdcssDescriptor *d) {
 uintptr_t rdcss_read(uintptr_t *addr) {
 	uintptr_t r;
 	do {
-		r = atomic_load(addr);
+		r = atomic_load(addr); // Required to avoid cache'd results.
 		if(is_descriptor(r)) {
-			complete((RdcssDescriptor*)(r&~1));
+			complete((RdcssDescriptor*)(r&~1)); // unmark before cast
 		}
 	} while(is_descriptor(r));
 	return r;
 }
 
 void complete(RdcssDescriptor *d) {
-	// I chose to utilize atomic load here,
-	uintptr_t v = atomic_load(d->a1);
-	uintptr_t d_ptr = (((uintptr_t)(void*)d) | 1);
+	uintptr_t v = atomic_load(d->a1); // Required to avoid cache'd results.
+	uintptr_t d_ptr = (((uintptr_t)(void*)d) | 1); // mark our descriptor
 	if (v == d->o1) {
-		if(CAS1(d->a2,d_ptr,d->n2)==d_ptr){
-			
-		}
+		CAS1(d->a2,d_ptr,d->n2);
 	}
 	else {
 		CAS1(d->a2,d_ptr,d->o2);
@@ -65,6 +62,10 @@ void complete(RdcssDescriptor *d) {
 uintptr_t CAS1(uintptr_t *a, uintptr_t o, uintptr_t n) {
 	uintptr_t o_t = o;
 	atomic_compare_exchange_strong(a, &o_t, n);
+
+	// o_t will either contain o if CAS was succesful, or 
+	// *a if CAS was unsuccesful. Results in always getting
+	// value at a*.
 	return o_t;
 }
 

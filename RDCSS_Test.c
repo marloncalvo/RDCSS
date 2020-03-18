@@ -36,15 +36,12 @@ int progress = 1; // just so we can tell threads to stop.
  */
 void* counter() {
 
-	unsigned long long i = 0;
 	while(progress) {
 		// Grab latest pointer from count. Needs to be rdcss_read because there may be a
 		// descriptor at count.
 		uintptr_t old = rdcss_read(&count);
-
-		if(i % 100000000 == 0) {			
-			//printf("count=%ld\n",*((unsigned long long*)old));
-		}
+		
+		//printf("count=%ld\n",*((unsigned long long*)old));
 
 		// We need to allocate a new memory address, so that we do not change the old one.
 		// Omitting this step causes `old` memory address to be updated. We only want to update
@@ -64,7 +61,6 @@ void* counter() {
 
 		rdcss(&d);
 		free(n_count_ptr);
-		i++;
 	}
 
 	return NULL;
@@ -81,12 +77,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	printf("Starting counter with %d thread(s).\n", n_threads);
-
 	unsigned long long init_count = 0;
-
 	count = (uintptr_t)(void*)&init_count;
 	flag = 0;
+
+	printf("Starting counter with %d thread(s).\n", n_threads);
 
 	pthread_t threads[n_threads];
 	for (int i = 0; i < n_threads; i++) {
@@ -95,9 +90,12 @@ int main(int argc, char *argv[]) {
 
 	printf("...\n");
 
+	// This is lazy, but accurate enough for our purposes.
 	sleep(SECONDS);
 	atomic_store(&flag,1);
 
+	// Just to show that RDCSS will fail to update if the flag is false,
+	// but allow for the program to end.
 	sleep(3);
 	atomic_store(&progress, 0);
 
