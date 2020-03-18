@@ -41,7 +41,7 @@ void* counter() {
 		// descriptor at count.
 		uintptr_t old = rdcss_read(&count);
 		
-		//printf("count=%ld\n",*((unsigned long long*)old));
+		//printf("count=%lld\n",*((unsigned long long*)old));
 
 		// We need to allocate a new memory address, so that we do not change the old one.
 		// Omitting this step causes `old` memory address to be updated. We only want to update
@@ -99,5 +99,5 @@ int main(int argc, char *argv[]) {
 	sleep(3);
 	atomic_store(&progress, 0);
 
-	printf("Result=%ld\n", *((unsigned long long*)rdcss_read(&count)));
+	printf("Result=%lld\n", *((unsigned long long*)rdcss_read(&count)));
 }
