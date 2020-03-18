@@ -16,11 +16,12 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <stdio.h>
 #include "RDCSS.h"
 
-#define N_THREADS 16
-#define SECONDS 5.0
+#define N_THREADS 1
+#define SECONDS 75
 
 uintptr_t count; // This is treated as a pointer to a memory address.
 uintptr_t flag; // This is treated as a bit for true / false.
@@ -35,55 +36,70 @@ int progress = 1; // just so we can tell threads to stop.
  */
 void* counter() {
 
+	unsigned long long i = 0;
 	while(progress) {
-
 		// Grab latest pointer from count. Needs to be rdcss_read because there may be a
 		// descriptor at count.
 		uintptr_t old = rdcss_read(&count);
-		//printf("count=%d\n",*((int*)(void*)old));
+
+		if(i % 100000000 == 0) {			
+			//printf("count=%ld\n",*((unsigned long long*)old));
+		}
 
 		// We need to allocate a new memory address, so that we do not change the old one.
 		// Omitting this step causes `old` memory address to be updated. We only want to update
 		// the address of the pointer that count points to, not the value of the pointed pointer.
-		int *n_count = (int*)malloc(sizeof(int));
-		*n_count = *((int*)(void*)old) + 1;
+		unsigned long long *n_count_ptr = (unsigned long long*)malloc(sizeof(unsigned long long));
+		*n_count_ptr = *((unsigned long long*)old) + 1;
+
+		unsigned long long n_count = *n_count_ptr + 1;
 
 		// Notice d->o1 is 0, which is what we are treating as the flag being false.
-		RdcssDescriptor *d = (RdcssDescriptor*)malloc(sizeof(RdcssDescriptor));
-		d->a1 = &flag;
-		d->o1 = 0;
-		d->a2 = &count;
-		d->o2 = old;
-		d->n2 = (uintptr_t)(void*)n_count;
+		RdcssDescriptor d;
+		d.a1 = &flag;
+		d.o1 = 0;
+		d.a2 = &count;
+		d.o2 = old;
+		d.n2 = (uintptr_t)(void*)&n_count;
 
-		rdcss(d);
+		rdcss(&d);
+		free(n_count_ptr);
+		i++;
 	}
 
 	return NULL;
 }
 
-int main(void) {
-	int init_count = 0;
+int main(int argc, char *argv[]) {
+
+	int n_threads = N_THREADS;
+
+	if(argc > 1) {
+		int t_n_threads = atoi(argv[1]);
+		if(t_n_threads > 0) {
+			n_threads = t_n_threads;
+		}
+	}
+
+	printf("Starting counter with %d thread(s).\n", n_threads);
+
+	unsigned long long init_count = 0;
 
 	count = (uintptr_t)(void*)&init_count;
 	flag = 0;
 
-	pthread_t threads[N_THREADS];
-	for (int i = 0; i < N_THREADS; i++) {
+	pthread_t threads[n_threads];
+	for (int i = 0; i < n_threads; i++) {
 		pthread_create( &threads[i], NULL, counter, NULL);
 	}
 
-	time_t start, end;
-	time(&start);
-	do time(&end); while(difftime(end, start) <= SECONDS);
-	atomic_store(&flag,1); // @suppress("Type cannot be resolved")
+	printf("...\n");
 
-	// Show that RDCSS still works after setting flag to false, but terminating
-	// after that.
-	time(&start);
-	do time(&end); while(difftime(end, start) <= 5.0);
+	sleep(SECONDS);
+	atomic_store(&flag,1);
 
+	sleep(3);
 	atomic_store(&progress, 0);
 
-	printf("%d\n", *((int*)(void*)count));
+	printf("Result=%ld\n", *((unsigned long long*)rdcss_read(&count)));
 }

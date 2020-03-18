@@ -16,6 +16,7 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdatomic.h>
 #include "RDCSS.h"
 
@@ -52,7 +53,9 @@ void complete(RdcssDescriptor *d) {
 	uintptr_t v = atomic_load(d->a1);
 	uintptr_t d_ptr = (((uintptr_t)(void*)d) | 1);
 	if (v == d->o1) {
-		CAS1(d->a2,d_ptr,d->n2);
+		if(CAS1(d->a2,d_ptr,d->n2)==d_ptr){
+			
+		}
 	}
 	else {
 		CAS1(d->a2,d_ptr,d->o2);
