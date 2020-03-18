@@ -11,5 +11,5 @@ RDCSS implementation support word sized pointers for the data / control section.
 Run make.
 
 ## Run
-a) ./test
-b) Run `compile_results.sh` to perform run against each number of threads.
+* ./test
+* Run `compile_results.sh` to perform run against each number of threads.
